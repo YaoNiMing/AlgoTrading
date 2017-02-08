@@ -106,4 +106,4 @@ def trading(theta,sigma,c,n_sim,T,Ndt,alpha,phi,kpmin,kpmax,dkp):
 
 	return kappa
 
-#if __name__=='__main__': trading(0.5,0.4,1e-4,10000,1,1000,0.01,2e-4,0,10,1)
+if __name__=='__main__': trading(0.5,0.4,1e-4,10000,1,1000,0.01,2e-4,0,10,1)

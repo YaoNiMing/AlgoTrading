@@ -2,13 +2,50 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <cstdlib>
+#include <pthread.h>
 #include "sim.h"
 #include "grids.h"
 #include "strategy.h"
 
 using namespace std;
+typedef struct _thread_kappa_t {
+	size_t n_sim;
+	size_t n_dt;
+	size_t kap_i;
+	double T;
+	double theta;
+	double sigma;
+	double c;
+	double alpha;
+	double phi;
+	double kappa;
+	Sim *sim;
+} thread_kappa_t;
+
+	void *kappa_thread(void *kappa_vp) {
+		thread_kappa_t *kappa_p = (thread_kappa_t *)kappa_vp;
+		kappa_p->sim->mkt_simulation(kappa_p->n_dt,(kappa_p->T)/(kappa_p->n_dt),kappa_p->theta,kappa_p->sigma,
+					kappa_p->c,kappa_p->n_sim,kappa_p->kappa,kappa_p->kap_i);
+		double **simulation=kappa_p->sim->get_simulation();
+		double **trading_rate=kappa_p->sim->get_trading_rate();
+		double **inventory = kappa_p->sim->get_inventory();
+		double **book_value= kappa_p->sim->get_book_value();
+		
+		Grids *grid = new Grids(kappa_p->T,kappa_p->n_dt,kappa_p->sigma,kappa_p->theta,kappa_p->kappa);
+
+		Strategy *strtg = new Strategy(kappa_p->alpha, kappa_p->phi, kappa_p->theta, kappa_p->sigma,
+						kappa_p->c,kappa_p->kappa,grid,simulation[kappa_p->kap_i],trading_rate[kappa_p->kap_i],
+						inventory[kappa_p->kap_i],book_value[kappa_p->kap_i],kappa_p->n_sim);
+		grid->del_grids();
+
+	  	pthread_exit(NULL);
+	}
+
 
 class Trading{
+
+
 private:
 
 	double theta;
@@ -41,17 +78,31 @@ public:
 	}
 
 	int trading (double *kappa){
+		pthread_t thr[n_kappa];
+		thread_kappa_t kappa_data[n_kappa];
+		int rc;
 		for (size_t i=0;i<n_kappa;++i) {
-			cout << "kappa = " << kappa[i] << endl;
-			sim->mkt_simulation(n_dt,T/n_dt,theta,sigma,c,n_sim,kappa[i],i);
-			double **simulation=sim->get_simulation();
-			double **trading_rate=sim->get_trading_rate();
-			double **inventory = sim->get_inventory();
-			double **book_value=sim->get_book_value();
-			Grids* grid = new Grids(T,n_dt,sigma,theta,kappa[i]);
-			Strategy *strtg = new Strategy(alpha,phi,theta,sigma,c,kappa[i], grid,simulation[i],trading_rate[i],inventory[i],book_value[i],n_sim);
-			
-			grid->del_grids();
+			kappa_data[i].theta = this->theta;
+			kappa_data[i].sigma = this->sigma;
+			kappa_data[i].c = this->c;
+			kappa_data[i].n_sim = this->n_sim;
+			kappa_data[i].T = this->T;
+			kappa_data[i].n_dt = this->n_dt;
+			kappa_data[i].alpha = this->alpha;
+			kappa_data[i].phi = this->phi;
+			kappa_data[i].kap_i = i;
+			kappa_data[i].kappa = kappa[i];
+			kappa_data[i].sim = this->sim;
+			cout << "starting thread "<<i<<" for kappa = " << kappa[i]<<endl;
+			if ((rc = pthread_create(&thr[i],NULL,kappa_thread, &kappa_data[i]))) {
+				wcerr<<"error: pthread_create, rc: "<<rc;
+				return EXIT_FAILURE;
+			}
+				
+		}
+		for (size_t i=0;i<n_kappa;++i) {
+			pthread_join(thr[i],NULL);
+			cout << "thread " << i << " finished!" <<endl;
 		}			
 		return 0;	
 	}

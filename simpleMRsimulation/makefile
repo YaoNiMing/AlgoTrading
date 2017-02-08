@@ -1,5 +1,5 @@
 bin/trading.so: bin/trading.o bin/sim.o bin/grids.o bin/strategy.o 
-	g++-mp-4.7 -std=c++11 -I inc -shared -o bin/trading.so bin/trading.o bin/sim.o bin/grids.o bin/strategy.o
+	g++-mp-4.7 -std=c++11 -I inc -shared -o bin/trading.so bin/trading.o bin/sim.o bin/grids.o bin/strategy.o -pthread
 
 bin/trading.o: src/trading.cpp
 	g++-mp-4.7 -c -std=c++11 -fPIC src/trading.cpp -o bin/trading.o
